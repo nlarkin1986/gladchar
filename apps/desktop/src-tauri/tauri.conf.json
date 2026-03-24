@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Char Dev",
-  "mainBinaryName": "char-dev",
-  "identifier": "com.hyprnote.dev",
+  "productName": "Gladly Notes Dev",
+  "mainBinaryName": "gladly-notes-dev",
+  "identifier": "com.gladly.notes.dev",
   "build": {
     "beforeDevCommand": "pnpm -F desktop dev",
     "devUrl": "http://localhost:1422",
