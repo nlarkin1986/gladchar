@@ -7,16 +7,11 @@ import {
 } from "@hypr/plugin-local-stt";
 import type { AIProviderStorage } from "@hypr/store";
 
-import { useAuth } from "~/auth";
-import { useBillingAccess } from "~/auth/billing";
-import { env } from "~/env";
 import { providerRowId } from "~/settings/ai/shared";
 import { type ProviderId } from "~/settings/ai/stt/shared";
 import * as settings from "~/store/tinybase/store/settings";
 
 export const useSTTConnection = () => {
-  const auth = useAuth();
-  const billing = useBillingAccess();
   const { current_stt_provider, current_stt_model } = settings.UI.useValues(
     settings.STORE_ID,
   ) as {
@@ -32,11 +27,7 @@ export const useSTTConnection = () => {
 
   const isLocalModel =
     current_stt_provider === "hyprnote" &&
-    !!current_stt_model &&
-    current_stt_model !== "cloud";
-
-  const isCloudModel =
-    current_stt_provider === "hyprnote" && current_stt_model === "cloud";
+    !!current_stt_model;
 
   const local = useQuery({
     enabled: current_stt_provider === "hyprnote",
@@ -95,19 +86,6 @@ export const useSTTConnection = () => {
       return local.data?.connection ?? null;
     }
 
-    if (isCloudModel) {
-      if (!auth?.session || !billing.isPro) {
-        return null;
-      }
-
-      return {
-        provider: current_stt_provider,
-        model: current_stt_model,
-        baseUrl: baseUrl ?? new URL("/stt", env.VITE_API_URL).toString(),
-        apiKey: auth.session.access_token,
-      };
-    }
-
     if (!baseUrl || !apiKey) {
       return null;
     }
@@ -122,18 +100,15 @@ export const useSTTConnection = () => {
     current_stt_provider,
     current_stt_model,
     isLocalModel,
-    isCloudModel,
     local.data,
     baseUrl,
     apiKey,
-    auth,
-    billing.isPro,
   ]);
 
   return {
     conn: connection,
     local,
     isLocalModel,
-    isCloudModel,
+    isCloudModel: false,
   };
 };
