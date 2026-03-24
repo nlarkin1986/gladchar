@@ -16,33 +16,16 @@ import { PROVIDERS } from "./shared";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { providerRowId } from "~/settings/ai/shared";
-import {
-  getProviderSelectionBlockers,
-  requiresEntitlement,
-} from "~/settings/ai/shared/eligibility";
-import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
-import { listAzureAIModels } from "~/settings/ai/shared/list-azure-ai";
-import { listAzureOpenAIModels } from "~/settings/ai/shared/list-azure-openai";
-import {
-  type InputModality,
-  type ListModelsResult,
-} from "~/settings/ai/shared/list-common";
-import { listGoogleModels } from "~/settings/ai/shared/list-google";
-import { listLMStudioModels } from "~/settings/ai/shared/list-lmstudio";
-import { listMistralModels } from "~/settings/ai/shared/list-mistral";
+import { getProviderSelectionBlockers } from "~/settings/ai/shared/eligibility";
+import { type ListModelsResult } from "~/settings/ai/shared/list-common";
 import { listOllamaModels } from "~/settings/ai/shared/list-ollama";
-import {
-  listGenericModels,
-  listOpenAIModels,
-} from "~/settings/ai/shared/list-openai";
-import { listOpenRouterModels } from "~/settings/ai/shared/list-openrouter";
+import { listGenericModels } from "~/settings/ai/shared/list-openai";
 import { ModelCombobox } from "~/settings/ai/shared/model-combobox";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
 export function SelectProviderAndModel() {
   const configuredProviders = useConfiguredMapping();
-  const billing = useBillingAccess();
 
   const { current_llm_model, current_llm_provider } = useConfigValues([
     "current_llm_model",
@@ -103,12 +86,8 @@ export function SelectProviderAndModel() {
           <form.Field
             name="provider"
             listeners={{
-              onChange: ({ value }) => {
-                if (value === "hyprnote") {
-                  form.setFieldValue("model", "Auto");
-                } else {
-                  form.setFieldValue("model", "");
-                }
+              onChange: () => {
+                form.setFieldValue("model", "");
               },
             }}
           >
@@ -117,10 +96,6 @@ export function SelectProviderAndModel() {
                 <Select
                   value={field.state.value}
                   onValueChange={(value) => {
-                    if (value === "hyprnote" && !billing.isPro) {
-                      billing.upgradeToPro();
-                      return;
-                    }
                     field.handleChange(value);
                   }}
                 >
@@ -130,33 +105,16 @@ export function SelectProviderAndModel() {
                   <SelectContent>
                     {PROVIDERS.map((provider) => {
                       const status = configuredProviders[provider.id];
-                      const requiresPro = requiresEntitlement(
-                        provider.requirements,
-                        "pro",
-                      );
-                      const locked = requiresPro && !billing.isPro;
 
                       return (
                         <SelectItem
                           key={provider.id}
                           value={provider.id}
-                          disabled={!status?.listModels || locked}
+                          disabled={!status?.listModels}
                         >
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                              {provider.icon}
-                              <span>{provider.displayName}</span>
-                              {requiresPro ? (
-                                <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
-                                  Pro
-                                </span>
-                              ) : null}
-                            </div>
-                            {locked ? (
-                              <span className="text-[11px] text-neutral-500">
-                                Upgrade to Pro to use this provider.
-                              </span>
-                            ) : null}
+                          <div className="flex items-center gap-2">
+                            {provider.icon}
+                            <span>{provider.displayName}</span>
                           </div>
                         </SelectItem>
                       );
@@ -244,51 +202,11 @@ function useConfiguredMapping(): Record<string, ProviderStatus> {
           return [provider.id, { listModels: undefined }];
         }
 
-        if (provider.id === "hyprnote") {
-          const result: ListModelsResult = {
-            models: ["Auto"],
-            ignored: [],
-            metadata: {
-              Auto: {
-                input_modalities: ["text", "image"] as InputModality[],
-              },
-            },
-          };
-          return [provider.id, { listModels: async () => result }];
-        }
-
         let listModelsFunc: () => Promise<ListModelsResult>;
 
         switch (provider.id) {
-          case "openai":
-            listModelsFunc = () => listOpenAIModels(baseUrl, apiKey);
-            break;
-          case "anthropic":
-            listModelsFunc = () => listAnthropicModels(baseUrl, apiKey);
-            break;
-          case "openrouter":
-            listModelsFunc = () => listOpenRouterModels(baseUrl, apiKey);
-            break;
-          case "google_generative_ai":
-            listModelsFunc = () => listGoogleModels(baseUrl, apiKey);
-            break;
-          case "mistral":
-            listModelsFunc = () => listMistralModels(baseUrl, apiKey);
-            break;
-          case "azure_openai":
-            listModelsFunc = () => listAzureOpenAIModels(baseUrl, apiKey);
-            break;
-          case "azure_ai":
-            listModelsFunc = () => listAzureAIModels(baseUrl, apiKey);
-            break;
           case "ollama":
             listModelsFunc = () => listOllamaModels(baseUrl, apiKey);
-            break;
-          case "lmstudio":
-            listModelsFunc = () => listLMStudioModels(baseUrl, apiKey);
-            break;
-          case "custom":
-            listModelsFunc = () => listGenericModels(baseUrl, apiKey);
             break;
           default:
             listModelsFunc = () => listGenericModels(baseUrl, apiKey);

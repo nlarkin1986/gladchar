@@ -64,7 +64,8 @@ function DownloadButtons() {
     staleTime: Infinity,
   });
 
-  const isDev = identifierQuery.data === "com.hyprnote.dev";
+  const isDev = identifierQuery.data === "com.gladly.notes.dev" ||
+    identifierQuery.data === "com.hyprnote.dev";
   const isNightly = identifierQuery.data === "com.hyprnote.nightly";
 
   const channels: Array<"stable" | "nightly"> = isDev

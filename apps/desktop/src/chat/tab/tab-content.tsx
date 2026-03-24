@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { useFeedbackLanguageModel } from "~/ai/hooks";
+import { useLanguageModel } from "~/ai/hooks";
 import { useAuth } from "~/auth";
 import { ChatBody } from "~/chat/components/body";
 import { ChatContent } from "~/chat/components/content";
@@ -46,7 +46,7 @@ function SupportChatTabView({
 
   const stableSessionId = useStableSessionId(groupId);
   const { user_id } = main.UI.useValues(main.STORE_ID);
-  const feedbackModel = useFeedbackLanguageModel();
+  const feedbackModel = useLanguageModel();
   const {
     tools: mcpTools,
     systemPrompt,
@@ -93,7 +93,7 @@ function SupportChatTabView({
           key={`${stableSessionId}-${mcpToolCount}`}
           sessionId={stableSessionId}
           chatGroupId={groupId}
-          modelOverride={feedbackModel}
+          modelOverride={feedbackModel ?? undefined}
           extraTools={mcpTools}
           systemPromptOverride={systemPrompt}
         >
@@ -142,7 +142,7 @@ function SupportChatTabInner({
     onRemoveContextEntity: (key: string) => void;
     isSystemPromptReady: boolean;
   };
-  feedbackModel: ReturnType<typeof useFeedbackLanguageModel>;
+  feedbackModel: ReturnType<typeof useLanguageModel>;
   handleSendMessage: (
     content: string,
     parts: HyprUIMessage["parts"],

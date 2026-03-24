@@ -1,9 +1,8 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   Download,
   FolderOpen,
-  HelpCircle,
   Loader2,
   Trash2,
   X,
@@ -21,22 +20,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@hypr/ui/components/ui/accordion";
-import { Switch } from "@hypr/ui/components/ui/switch";
 import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
 import { ProviderId, PROVIDERS } from "./shared";
 
-import { useBillingAccess } from "~/auth/billing";
-import {
-  HyprCloudCTAButton,
-  HyprProviderRow,
-  NonHyprProviderCard,
-  StyledStreamdown,
-} from "~/settings/ai/shared";
+import { HyprProviderRow, StyledStreamdown } from "~/settings/ai/shared";
 import * as settings from "~/store/tinybase/store/settings";
 import { useListener } from "~/stt/contexts";
-import { localSttQueries, useLocalModelDownload } from "~/stt/useLocalSttModel";
+import { useLocalModelDownload } from "~/stt/useLocalSttModel";
 
 export function ConfigureProviders() {
   const { accordionValue, setAccordionValue, hyprAccordionRef } =
@@ -52,41 +44,19 @@ export function ConfigureProviders() {
         value={accordionValue}
         onValueChange={setAccordionValue}
       >
-        <HyprProviderCard
+        <CactusProviderCard
           ref={hyprAccordionRef}
           providerId="hyprnote"
-          providerName="Char"
-          icon={<img src="/assets/icon.png" alt="Char" className="size-5" />}
+          providerName="Cactus"
+          icon={<img src="/assets/icon.png" alt="Cactus" className="size-5" />}
           badge={PROVIDERS.find((p) => p.id === "hyprnote")?.badge}
         />
-        {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
-          (provider) => (
-            <NonHyprProviderCard
-              key={provider.id}
-              config={provider}
-              providerType="stt"
-              providers={PROVIDERS}
-              providerContext={<ProviderContext providerId={provider.id} />}
-            />
-          ),
-        )}
       </Accordion>
     </div>
   );
 }
 
-function ModelGroupLabel({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-2 pt-1">
-      <span className="shrink-0 text-[10px] font-medium tracking-widest text-neutral-400 uppercase">
-        {label}
-      </span>
-      <div className="flex-1 border-t border-neutral-200" />
-    </div>
-  );
-}
-
-function HyprProviderCard({
+function CactusProviderCard({
   ref,
   providerId,
   providerName,
@@ -108,17 +78,8 @@ function HyprProviderCard({
     staleTime: Infinity,
   });
 
-  const argmaxModels =
-    supportedModels.data?.filter((m) => m.model_type === "argmax") ?? [];
-  const whispercppModels =
-    supportedModels.data?.filter((m) => m.model_type === "whispercpp") ?? [];
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
-
-  const hasLocalModels =
-    argmaxModels.length > 0 ||
-    whispercppModels.length > 0 ||
-    cactusModels.length > 0;
 
   const providerDef = PROVIDERS.find((p) => p.id === providerId);
   const isConfigured = providerDef?.requirements.length === 0;
@@ -148,66 +109,15 @@ function HyprProviderCard({
       <AccordionContent className="px-4">
         <ProviderContext providerId={providerId} />
         <div className="flex flex-col gap-3">
-          <HyprProviderCloudRow />
-
-          {hasLocalModels && (
+          {cactusModels.length > 0 && (
             <>
-              <div className="flex items-center gap-3 py-2">
-                <div className="flex-1 border-t border-dashed border-neutral-300" />
-                <a
-                  href="https://char.com/docs/developers/local-models"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-neutral-400 hover:underline"
-                >
-                  <span>or use on-device model</span>
-                  <HelpCircle className="size-3" />
-                </a>
-                <div className="flex-1 border-t border-dashed border-neutral-300" />
-              </div>
-
-              {argmaxModels.length > 0 && (
-                <>
-                  <ModelGroupLabel label="Argmax" />
-                  {argmaxModels.map((model) => (
-                    <HyprProviderLocalRow
-                      key={model.key as string}
-                      model={model.key}
-                      displayName={model.display_name}
-                      description={model.description}
-                    />
-                  ))}
-                </>
-              )}
-
-              {whispercppModels.length > 0 && (
-                <>
-                  <ModelGroupLabel label="WhisperCPP" />
-                  {whispercppModels.map((model) => (
-                    <HyprProviderLocalRow
-                      key={model.key as string}
-                      model={model.key}
-                      displayName={model.display_name}
-                      description={model.description}
-                    />
-                  ))}
-                </>
-              )}
-
-              {cactusModels.length > 0 && (
-                <>
-                  <ModelGroupLabel label="Cactus (Experimental)" />
-                  {/* <CactusSettings models={cactusModels.map((m) => m.key)} /> */}
-
-                  {cactusModels.map((model) => (
-                    <CactusRow
-                      key={model.key as string}
-                      model={model.key}
-                      displayName={model.display_name}
-                    />
-                  ))}
-                </>
-              )}
+              {cactusModels.map((model) => (
+                <CactusRow
+                  key={model.key as string}
+                  model={model.key}
+                  displayName={model.display_name}
+                />
+              ))}
             </>
           )}
         </div>
@@ -260,117 +170,6 @@ function CactusRow({
         onDownload={handleDownload}
         onCancel={handleCancel}
         onDelete={handleDelete}
-      />
-    </HyprProviderRow>
-  );
-}
-
-// @ts-expect-error
-function CactusSettings({ models }: { models: LocalModel[] }) {
-  const downloadedQueries = useQueries({
-    queries: models.map((m) => localSttQueries.isDownloaded(m)),
-  });
-
-  const anyDownloaded = downloadedQueries.some((q) => q.data);
-
-  const cloudHandoff = settings.UI.useValue(
-    "cactus_cloud_handoff",
-    settings.STORE_ID,
-  );
-
-  const handleSetCloudHandoff = settings.UI.useSetValueCallback(
-    "cactus_cloud_handoff",
-    (v: boolean) => v,
-    [],
-    settings.STORE_ID,
-  );
-
-  const minChunkSec = settings.UI.useValue(
-    "cactus_min_chunk_sec",
-    settings.STORE_ID,
-  );
-
-  const handleSetMinChunkSec = settings.UI.useSetValueCallback(
-    "cactus_min_chunk_sec",
-    (v: number) => v,
-    [],
-    settings.STORE_ID,
-  );
-
-  if (!anyDownloaded) {
-    return null;
-  }
-
-  return (
-    <HyprProviderRow>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-neutral-500">
-            Hand off to cloud when model is uncertain. (only that chunk of
-            audio)
-          </p>
-          <Switch
-            checked={cloudHandoff ?? true}
-            onCheckedChange={handleSetCloudHandoff}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-neutral-500">Min chunk size (seconds)</p>
-          <input
-            type="number"
-            min={0.5}
-            max={10}
-            step={0.5}
-            value={minChunkSec ?? 2.5}
-            onChange={(e) => handleSetMinChunkSec(Number(e.target.value))}
-            className="w-16 rounded border border-neutral-700 bg-transparent px-2 py-0.5 text-right text-xs text-neutral-300 focus:outline-none"
-          />
-        </div>
-      </div>
-    </HyprProviderRow>
-  );
-}
-
-function HyprProviderCloudRow() {
-  const { isPro, canStartTrial, upgradeToPro } = useBillingAccess();
-  const { shouldHighlightDownload } = useSttSettings();
-
-  const handleSelectProvider = settings.UI.useSetValueCallback(
-    "current_stt_provider",
-    (provider: string) => provider,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleSelectModel = settings.UI.useSetValueCallback(
-    "current_stt_model",
-    (model: string) => model,
-    [],
-    settings.STORE_ID,
-  );
-
-  const handleClick = useCallback(() => {
-    if (!isPro) {
-      upgradeToPro();
-    } else {
-      handleSelectProvider("hyprnote");
-      handleSelectModel("cloud");
-    }
-  }, [isPro, upgradeToPro, handleSelectProvider, handleSelectModel]);
-
-  return (
-    <HyprProviderRow>
-      <div className="flex-1">
-        <span className="text-sm font-medium">Char Cloud</span>
-        <p className="text-xs text-neutral-500">
-          Use the Char Cloud API to transcribe your audio.
-        </p>
-      </div>
-      <HyprCloudCTAButton
-        isPro={isPro}
-        canStartTrial={canStartTrial.data}
-        highlight={shouldHighlightDownload}
-        onClick={handleClick}
       />
     </HyprProviderRow>
   );
@@ -505,82 +304,11 @@ function LocalModelAction({
   );
 }
 
-function HyprProviderLocalRow({
-  model,
-  displayName,
-  description,
-}: {
-  model: LocalModel;
-  displayName: string;
-  description: string;
-}) {
-  const handleSelectModel = useSafeSelectModel();
-  const { shouldHighlightDownload } = useSttSettings();
-
-  const {
-    progress,
-    hasError,
-    isDownloaded,
-    showProgress,
-    handleDownload,
-    handleCancel,
-    handleDelete,
-  } = useLocalModelDownload(model, handleSelectModel);
-
-  const handleOpen = () => {
-    void localSttCommands.modelsDir().then((result) => {
-      if (result.status === "ok") {
-        void openerCommands.openPath(result.data, null);
-      }
-    });
-  };
-
-  return (
-    <HyprProviderRow>
-      <div className="flex-1">
-        <span className="text-sm font-medium">{displayName}</span>
-        <p className="text-xs text-neutral-500">{description}</p>
-      </div>
-
-      <LocalModelAction
-        isDownloaded={isDownloaded}
-        showProgress={showProgress}
-        progress={progress}
-        hasError={hasError}
-        highlight={shouldHighlightDownload}
-        onOpen={handleOpen}
-        onDownload={handleDownload}
-        onCancel={handleCancel}
-        onDelete={handleDelete}
-      />
-    </HyprProviderRow>
-  );
-}
-
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =
     providerId === "hyprnote"
-      ? "Char curates list of on-device models and also cloud models with high-availability and performance."
-      : providerId === "deepgram"
-        ? `Use [Deepgram](https://deepgram.com) for transcriptions. \
-    If you want to use a [Dedicated](https://developers.deepgram.com/reference/custom-endpoints#deepgram-dedicated-endpoints)
-    or [EU](https://developers.deepgram.com/reference/custom-endpoints#eu-endpoints) endpoint,
-    you can do that in the **advanced** section.`
-        : providerId === "soniox"
-          ? `Use [Soniox](https://soniox.com) for transcriptions.`
-          : providerId === "assemblyai"
-            ? `Use [AssemblyAI](https://www.assemblyai.com) for transcriptions.`
-            : providerId === "gladia"
-              ? `Use [Gladia](https://www.gladia.io) for transcriptions.`
-              : providerId === "openai"
-                ? `Use [OpenAI](https://openai.com) for transcriptions.`
-                : providerId === "fireworks"
-                  ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
-                  : providerId === "mistral"
-                    ? `Use [Mistral](https://mistral.ai) for transcriptions.`
-                    : providerId === "custom"
-                      ? `We only support **Deepgram compatible** endpoints for now.`
-                      : "";
+      ? "Cactus provides on-device speech-to-text models that run 100% locally on your machine."
+      : "";
 
   if (!content.trim()) {
     return null;

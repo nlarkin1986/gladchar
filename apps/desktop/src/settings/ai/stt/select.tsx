@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { arch } from "@tauri-apps/plugin-os";
 import { Check, Loader2 } from "lucide-react";
 
 import { commands as listenerCommands } from "@hypr/plugin-listener";
@@ -9,7 +8,6 @@ import {
   type LocalModel,
 } from "@hypr/plugin-local-stt";
 import type { AIProviderStorage } from "@hypr/store";
-import { Input } from "@hypr/ui/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -31,10 +29,7 @@ import {
 import { useBillingAccess } from "~/auth/billing";
 import { useNotifications } from "~/contexts/notifications";
 import { providerRowId } from "~/settings/ai/shared";
-import {
-  getProviderSelectionBlockers,
-  requiresEntitlement,
-} from "~/settings/ai/shared/eligibility";
+import { getProviderSelectionBlockers } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
@@ -45,9 +40,8 @@ export function SelectProviderAndModel() {
       "current_stt_model",
       "spoken_languages",
     ] as const);
-  const billing = useBillingAccess();
   const configuredProviders = useConfiguredMapping();
-  const { startDownload, startTrial } = useSttSettings();
+  const { startDownload } = useSttSettings();
   const health = useConnectionHealth();
 
   const isConfigured = !!(current_stt_provider && current_stt_model);
@@ -148,34 +142,15 @@ export function SelectProviderAndModel() {
                       (provider) => {
                         const configured =
                           configuredProviders[provider.id]?.configured ?? false;
-                        const requiresPro = requiresEntitlement(
-                          provider.requirements,
-                          "pro",
-                        );
-                        const locked = requiresPro && !billing.isPro;
                         return (
                           <SelectItem
                             key={provider.id}
                             value={provider.id}
-                            disabled={
-                              provider.disabled || !configured || locked
-                            }
+                            disabled={provider.disabled || !configured}
                           >
-                            <div className="flex flex-col gap-0.5">
-                              <div className="flex items-center gap-2">
-                                {provider.icon}
-                                <span>{provider.displayName}</span>
-                                {requiresPro ? (
-                                  <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
-                                    Pro
-                                  </span>
-                                ) : null}
-                              </div>
-                              {locked ? (
-                                <span className="text-[11px] text-neutral-500">
-                                  Upgrade to Pro to use this provider.
-                                </span>
-                              ) : null}
+                            <div className="flex items-center gap-2">
+                              {provider.icon}
+                              <span>{provider.displayName}</span>
                             </div>
                           </SelectItem>
                         );
@@ -194,20 +169,6 @@ export function SelectProviderAndModel() {
               const providerId = field.form.getFieldValue(
                 "provider",
               ) as ProviderId;
-              if (providerId === "custom") {
-                return (
-                  <div className="min-w-0 flex-3">
-                    <Input
-                      value={field.state.value}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                      className="text-xs"
-                      placeholder="Enter a model identifier"
-                    />
-                  </div>
-                );
-              }
 
               const models = configuredProviders?.[providerId]?.models ?? [];
 
@@ -239,7 +200,6 @@ export function SelectProviderAndModel() {
                           onDownload={() =>
                             startDownload(model.id as LocalModel)
                           }
-                          onStartTrial={startTrial}
                         />
                       ))}
                     </SelectContent>
@@ -291,14 +251,6 @@ function useConfiguredMapping(): Record<
     settings.STORE_ID,
   );
 
-  const targetArch = useQuery({
-    queryKey: ["target-arch"],
-    queryFn: () => arch(),
-    staleTime: Infinity,
-  });
-
-  const isAppleSilicon = targetArch.data === "aarch64";
-
   const supportedModels = useQuery({
     queryKey: ["list-supported-models"],
     queryFn: async () => {
@@ -311,13 +263,8 @@ function useConfiguredMapping(): Record<
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
 
-  const [p2, p3, whisperLargeV3, ...cactusDownloaded] = useQueries({
-    queries: [
-      sttModelQueries.isDownloaded("am-parakeet-v2"),
-      sttModelQueries.isDownloaded("am-parakeet-v3"),
-      sttModelQueries.isDownloaded("am-whisper-large-v3"),
-      ...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key)),
-    ],
+  const cactusDownloaded = useQueries({
+    queries: cactusModels.map((m) => sttModelQueries.isDownloaded(m.key)),
   });
 
   return Object.fromEntries(
@@ -325,7 +272,7 @@ function useConfiguredMapping(): Record<
       const config = configuredProviders[providerRowId("stt", provider.id)] as
         | AIProviderStorage
         | undefined;
-      const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
+      const baseUrl = String(config?.base_url || "").trim();
       const apiKey = String(config?.api_key || "").trim();
 
       const eligible =
@@ -340,40 +287,17 @@ function useConfiguredMapping(): Record<
       }
 
       if (provider.id === "hyprnote") {
-        const models: ModelEntry[] = [
-          { id: "cloud", isDownloaded: billing.isPro },
-        ];
+        const models: ModelEntry[] = [];
 
-        if (isAppleSilicon) {
-          cactusModels.forEach((model, i) => {
-            models.push({
-              id: model.key,
-              isDownloaded: cactusDownloaded[i]?.data ?? false,
-              displayName: model.display_name,
-            });
+        cactusModels.forEach((model, i) => {
+          models.push({
+            id: model.key,
+            isDownloaded: cactusDownloaded[i]?.data ?? false,
+            displayName: model.display_name,
           });
-
-          models.push(
-            {
-              id: "am-parakeet-v2",
-              isDownloaded: p2.data ?? false,
-            },
-            {
-              id: "am-parakeet-v3",
-              isDownloaded: p3.data ?? false,
-            },
-            {
-              id: "am-whisper-large-v3",
-              isDownloaded: whisperLargeV3.data ?? false,
-            },
-          );
-        }
+        });
 
         return [provider.id, { configured: true, models }];
-      }
-
-      if (provider.id === "custom") {
-        return [provider.id, { configured: true, models: [] }];
       }
 
       return [
@@ -399,17 +323,14 @@ function useConfiguredMapping(): Record<
 function ModelSelectItem({
   model,
   onDownload,
-  onStartTrial,
 }: {
   model: ModelEntry;
   onDownload: () => void;
-  onStartTrial: () => void;
+  onStartTrial?: () => void;
 }) {
-  const isCloud = model.id === "cloud";
   const { activeDownloads } = useNotifications();
   const downloadInfo = activeDownloads.find((d) => d.model === model.id);
   const isDownloading = !!downloadInfo;
-  const billing = useBillingAccess();
 
   const label = model.displayName ?? displayModelId(model.id);
 
@@ -427,16 +348,8 @@ function ModelSelectItem({
     if (isDownloading) {
       return;
     }
-    if (isCloud) {
-      onStartTrial();
-    } else {
-      onDownload();
-    }
+    onDownload();
   };
-
-  const cloudButtonLabel = billing.canStartTrial.data
-    ? "Free Trial"
-    : "Upgrade";
 
   return (
     <div
@@ -466,13 +379,11 @@ function ModelSelectItem({
             "rounded-full px-2 py-0.5 text-[11px] font-medium",
             "opacity-0 group-hover:opacity-100",
             "transition-all duration-150",
-            isCloud
-              ? "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-xs hover:shadow-md"
-              : "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:shadow-md",
+            "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:shadow-md",
           ])}
           onClick={handleAction}
         >
-          {isCloud ? cloudButtonLabel : "Download"}
+          Download
         </button>
       )}
     </div>

@@ -141,30 +141,28 @@ export function useStartListening(
 
         const newHints: SpeakerHintWithId[] = [];
 
-        if (conn.provider === "deepgram") {
-          hints.forEach((hint) => {
-            if (hint.data.type !== "provider_speaker_index") {
-              return;
-            }
+        hints.forEach((hint) => {
+          if (hint.data.type !== "provider_speaker_index") {
+            return;
+          }
 
-            const wordId = newWordIds[hint.wordIndex];
-            const word = words[hint.wordIndex];
-            if (!wordId || !word) {
-              return;
-            }
+          const wordId = newWordIds[hint.wordIndex];
+          const word = words[hint.wordIndex];
+          if (!wordId || !word) {
+            return;
+          }
 
-            newHints.push({
-              id: id(),
-              word_id: wordId,
-              type: "provider_speaker_index",
-              value: JSON.stringify({
-                provider: hint.data.provider ?? conn.provider,
-                channel: hint.data.channel ?? word.channel,
-                speaker_index: hint.data.speaker_index,
-              }),
-            });
+          newHints.push({
+            id: id(),
+            word_id: wordId,
+            type: "provider_speaker_index",
+            value: JSON.stringify({
+              provider: hint.data.provider ?? conn.provider,
+              channel: hint.data.channel ?? word.channel,
+              speaker_index: hint.data.speaker_index,
+            }),
           });
-        }
+        });
 
         updateTranscriptWords(store, transcriptId, [
           ...existingWords,

@@ -11,6 +11,8 @@ export const id = () => crypto.randomUUID() as string;
 export const getScheme = async (): Promise<string> => {
   const id = await getIdentifier();
   const schemes: Record<string, string> = {
+    "com.gladly.notes": "hyprnote",
+    "com.gladly.notes.dev": "hypr",
     "com.hyprnote.stable": "hyprnote",
     "com.hyprnote.nightly": "hyprnote-nightly",
     "com.hyprnote.staging": "hyprnote-staging",
